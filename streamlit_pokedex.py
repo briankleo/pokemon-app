@@ -8,7 +8,7 @@ from io import BytesIO
 
 # App title
 st.title("Pokémon Explorer with Stat Comparison")
-st.write("Compare the stats of two Pokémon visually using a radar chart!")
+st.write("Compare the stats of up to four Pokémon visually using a radar chart!")
 
 # Function to get Pokémon data from the API
 def get_pokemon_data(pokemon_name_or_id):
@@ -23,21 +23,33 @@ def get_pokemon_data(pokemon_name_or_id):
 # Sidebar for input
 pokemon_1 = st.sidebar.text_input("First Pokémon", "pikachu")
 pokemon_2 = st.sidebar.text_input("Second Pokémon", "charizard")
+pokemon_3 = st.sidebar.text_input("Third Pokémon (optional)", "")
+pokemon_4 = st.sidebar.text_input("Fourth Pokémon (optional)", "")
 
 # Fetch Pokémon data
-pokemon_1_data = get_pokemon_data(pokemon_1)
-pokemon_2_data = get_pokemon_data(pokemon_2)
+pokemons = []
+for pokemon in [pokemon_1, pokemon_2, pokemon_3, pokemon_4]:
+    if pokemon:  # Only fetch data if a Pokémon name or ID is provided
+        pokemons.append(get_pokemon_data(pokemon))
 
-def plot_radar_chart(pokemon_1_data, pokemon_2_data):
-    # Extract base stats for both Pokémon
-    stats_1 = {stat['stat']['name']: stat['base_stat'] for stat in pokemon_1_data['stats']}
-    stats_2 = {stat['stat']['name']: stat['base_stat'] for stat in pokemon_2_data['stats']}
+# Radar chart function for up to 4 Pokémon
+def plot_radar_chart(pokemons):
+    # Define colors for up to 4 Pokémon
+    colors = ['blue', 'red', 'green', 'orange']
     
-    labels = list(stats_1.keys())
-    stats_1_values = list(stats_1.values())
-    stats_2_values = list(stats_2.values())
+    labels = []
+    stats_list = []
+    names = []
+    
+    # Extract stats from Pokémon data
+    for pokemon_data in pokemons:
+        if pokemon_data:
+            stats = {stat['stat']['name']: stat['base_stat'] for stat in pokemon_data['stats']}
+            labels = list(stats.keys())  # All Pokémon should have the same labels
+            stats_values = list(stats.values())
+            stats_list.append(stats_values)
+            names.append(pokemon_data['name'].capitalize())
 
-    # Number of variables we're plotting
     num_vars = len(labels)
 
     # Compute angle for each axis
@@ -47,17 +59,12 @@ def plot_radar_chart(pokemon_1_data, pokemon_2_data):
     # Radar chart
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
 
-    # First Pokémon
-    stats_1_values += stats_1_values[:1]  # Closing the loop for radar chart
-    ax.fill(angles, stats_1_values, color='blue', alpha=0.25)
-    ax.plot(angles, stats_1_values, color='blue', linewidth=2, label=pokemon_1_data['name'].capitalize())
+    for i, stats_values in enumerate(stats_list):
+        stats_values += stats_values[:1]  # Closing the loop for radar chart
+        ax.fill(angles, stats_values, color=colors[i], alpha=0.25)
+        ax.plot(angles, stats_values, color=colors[i], linewidth=2, label=names[i])
 
-    # Second Pokémon
-    stats_2_values += stats_2_values[:1]  # Closing the loop for radar chart
-    ax.fill(angles, stats_2_values, color='red', alpha=0.25)
-    ax.plot(angles, stats_2_values, color='red', linewidth=2, label=pokemon_2_data['name'].capitalize())
-
-    # Add labels
+    # Add labels and formatting
     ax.set_yticklabels([])
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(labels, color='grey', size=12)
@@ -69,25 +76,21 @@ def plot_radar_chart(pokemon_1_data, pokemon_2_data):
     st.pyplot(fig)
 
 # Display Pokémon images and stats
-if pokemon_1_data and pokemon_2_data:
-    st.subheader(f"Comparing {pokemon_1_data['name'].capitalize()} and {pokemon_2_data['name'].capitalize()}")
+if len(pokemons) >= 2:
+    st.subheader(f"Comparing Pokémon: {', '.join([pokemon['name'].capitalize() for pokemon in pokemons if pokemon])}")
     
-    col1, col2 = st.columns(2)
+    # Create columns for up to 4 Pokémon
+    cols = st.columns(len(pokemons))
 
-    with col1:
-        st.image(pokemon_1_data['sprites']['front_default'], caption=pokemon_1_data['name'].capitalize())
-        st.write("Stats:")
-        for stat in pokemon_1_data['stats']:
-            st.write(f"{stat['stat']['name'].capitalize()}: {stat['base_stat']}")
-
-    with col2:
-        st.image(pokemon_2_data['sprites']['front_default'], caption=pokemon_2_data['name'].capitalize())
-        st.write("Stats:")
-        for stat in pokemon_2_data['stats']:
-            st.write(f"{stat['stat']['name'].capitalize()}: {stat['base_stat']}")
-
+    for i, pokemon_data in enumerate(pokemons):
+        if pokemon_data:
+            with cols[i]:
+                st.image(pokemon_data['sprites']['front_default'], caption=pokemon_data['name'].capitalize())
+                st.write("Stats:")
+                for stat in pokemon_data['stats']:
+                    st.write(f"{stat['stat']['name'].capitalize()}: {stat['base_stat']}")
+    
     # Plot radar chart for stat comparison
-    plot_radar_chart(pokemon_1_data, pokemon_2_data)
-
+    plot_radar_chart(pokemons)
 else:
-    st.write("Please enter valid Pokémon names or IDs in the sidebar.")
+    st.write("Please enter at least two Pokémon names or IDs in the sidebar.")
